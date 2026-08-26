@@ -12,6 +12,8 @@ FINAL_IMG := $(BUILD)/final.img
 BOOTL_MAIN := src/bootl/main.c
 EFI_PROGRAM_DEST := $(FAT_STAGING_DIR)/EFI/BOOT/BOOTX64.efi
 GNU_EFI_DIR := gnu-efi-dir
+OVMF_LOCATION := /usr/share/ovmf/OVMF.fd
+QEMU_COMMAND := qemu-system-x86_64   -drive format=raw,file=build/final.img   -drive if=pflash,format=raw,readonly=on,file=$(OVMF_LOCATION) -m 512M
 
 
 
@@ -24,8 +26,6 @@ BOOTL_LD := ld
 BOOTL_LD_FLAGS := -shared -Bsymbolic -L$(GNU_EFI_DIR)/x86_64/lib -L$(GNU_EFI_DIR)/x86_64/gnuefi -T$(GNU_EFI_DIR)/gnuefi/elf_x86_64_efi.lds $(GNU_EFI_DIR)/x86_64/gnuefi/crt0-efi-x86_64.o -lgnuefi -lefi
 BOOTL_OBJCOPY := objcopy
 BOOTL_OBJCOPY_FLAGS := -j .text -j .sdata -j .data -j .rodata -j .dynamic -j .dynsym  -j .rel -j .rela -j .rel.* -j .rela.* -j .reloc --output-target efi-app-x86_64 --subsystem=10
-
-
 
 
 build: $(FINAL_IMG)
@@ -53,6 +53,8 @@ $(EFI_PROGRAM_DEST): $(BOOTL_MAIN)
 	$(BOOTL_LD) $(BOOTL_LD_FLAGS) $(BOOTL_BUILD)/main.o -o $(BOOTL_BUILD)/main.so 
 	$(BOOTL_OBJCOPY) $(BOOTL_OBJCOPY_FLAGS) $(BOOTL_BUILD)/main.so $@
 
+run: build
+	$(QEMU_COMMAND)
 
 clean:
 	rm -rf $(BUILD)

@@ -13,5 +13,6 @@ efi_main(EFI_HANDLE ImageHandle, EFI_SYSTEM_TABLE *SystemTable)
 
     Print(L"Reading kernel file: BOOT:BOOT/kernel.elf\n");
 
+    while (1) {}
     return EFI_SUCCESS;
 }
