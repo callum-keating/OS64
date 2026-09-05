@@ -1,60 +1,68 @@
-.PHONY: run build clean
-export PATH := $(PATH):/usr/sbin:/sbin
+.PHONY: all build run clean
 
-# file locations
 BUILD := build
-BOOTL_BUILD := $(BUILD)/efi
-FAT_STAGING_DIR := $(BOOTL_BUILD)/fat
-FAT_IMG := $(BUILD)/fat.img
-FINAL_IMG := $(BUILD)/final.img
+ISO_DIR := $(BUILD)/iso
+GRUB_DIR := $(ISO_DIR)/boot/grub
 
-## efi file locations
-BOOTL_MAIN := src/bootl/main.c
-EFI_PROGRAM_DEST := $(FAT_STAGING_DIR)/EFI/BOOT/BOOTX64.efi
-GNU_EFI_DIR := gnu-efi-dir
-OVMF_LOCATION := /usr/share/ovmf/OVMF.fd
-QEMU_COMMAND := qemu-system-x86_64   -drive format=raw,file=build/final.img   -drive if=pflash,format=raw,readonly=on,file=$(OVMF_LOCATION) -m 512M
+KERNEL := $(BUILD)/kernel.elf
+FINAL_IMG := $(BUILD)/kernel.iso
 
+SRC_DIR := src
+OBJ_DIR := $(BUILD)/objs
+KERNEL_DIR := $(SRC_DIR)/kernel
 
+C_SRCS := $(shell find $(KERNEL_DIR) -name "*.c")
+ASM_SRCS := $(shell find $(KERNEL_DIR) -name "*.S")
 
-# commands and flags
+C_OBJS := $(patsubst $(KERNEL_DIR)/%.c,$(OBJ_DIR)/%.o,$(C_SRCS))
+ASM_OBJS := $(patsubst $(KERNEL_DIR)/%.S,$(OBJ_DIR)/%.o,$(ASM_SRCS))
 
-## bootloader commands and flags
-BOOTL_CC := clang
-BOOTL_CC_FLAGS := -Wall -I$(GNU_EFI_DIR)/inc -fpic -ffreestanding -fno-stack-protector -fno-stack-check -fshort-wchar -mno-red-zone
-BOOTL_LD := ld
-BOOTL_LD_FLAGS := -shared -Bsymbolic -L$(GNU_EFI_DIR)/x86_64/lib -L$(GNU_EFI_DIR)/x86_64/gnuefi -T$(GNU_EFI_DIR)/gnuefi/elf_x86_64_efi.lds $(GNU_EFI_DIR)/x86_64/gnuefi/crt0-efi-x86_64.o -lgnuefi -lefi
-BOOTL_OBJCOPY := objcopy
-BOOTL_OBJCOPY_FLAGS := -j .text -j .sdata -j .data -j .rodata -j .dynamic -j .dynsym  -j .rel -j .rela -j .rel.* -j .rela.* -j .reloc --output-target efi-app-x86_64 --subsystem=10
+KERNEL_OBJS := $(C_OBJS) $(ASM_OBJS)
 
+CC := clang
+LD := ld
+
+CFLAGS := \
+	-Wall \
+	-Wextra \
+	-ffreestanding \
+	-fno-stack-protector \
+	-fno-stack-check \
+	-mno-red-zone \
+	-m64
+
+ASFLAGS := \
+	-m64
+
+LDFLAGS := \
+	-T linker.ld \
+	-m elf_x86_64
+
+all: build
 
 build: $(FINAL_IMG)
 
-$(FINAL_IMG): $(FAT_IMG)
-	dd if=/dev/zero of=$@ bs=1M count=512
-	parted $@ --script \
-      mklabel gpt \
-      mkpart ESP fat32 1MiB 511MiB \
-      set 1 esp on
-	dd if=build/fat.img of=build/final.img bs=1M seek=1 conv=notrunc
+$(FINAL_IMG): $(KERNEL)
+	@mkdir -p $(GRUB_DIR)
+	cp $(KERNEL) $(ISO_DIR)/boot/kernel.elf
+	cp grub.cfg $(GRUB_DIR)/grub.cfg
+	grub-mkrescue -o $@ $(ISO_DIR)
 
+$(KERNEL): $(KERNEL_OBJS)
+	@mkdir -p $(BUILD)
+	$(LD) $(LDFLAGS) -o $@ $^
 
-$(FAT_IMG): $(FAT_STAGING_DIR)
-	dd if=/dev/zero of=$@ bs=1M count=512
-	mkfs.fat -F32 $@
-	mcopy -s -i $@ $(FAT_STAGING_DIR)/* ::/
-
-$(FAT_STAGING_DIR): $(EFI_PROGRAM_DEST)
-
-
-$(EFI_PROGRAM_DEST): $(BOOTL_MAIN)
+$(OBJ_DIR)/%.o: $(KERNEL_DIR)/%.c
 	@mkdir -p $(dir $@)
-	$(BOOTL_CC) $(BOOTL_CC_FLAGS) -c $^ -o $(BOOTL_BUILD)/main.o
-	$(BOOTL_LD) $(BOOTL_LD_FLAGS) $(BOOTL_BUILD)/main.o -o $(BOOTL_BUILD)/main.so 
-	$(BOOTL_OBJCOPY) $(BOOTL_OBJCOPY_FLAGS) $(BOOTL_BUILD)/main.so $@
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(OBJ_DIR)/%.o: $(KERNEL_DIR)/%.S
+	@mkdir -p $(dir $@)
+	$(CC) $(ASFLAGS) -c $< -o $@
 
 run: build
-	$(QEMU_COMMAND)
+	qemu-system-x86_64 -cdrom $(FINAL_IMG)
 
 clean:
 	rm -rf $(BUILD)
+
