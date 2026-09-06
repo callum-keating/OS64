@@ -11,3 +11,11 @@ function ekm() {
 function em() {
     nvim Makefile
 }
+
+function r() {
+    make run
+}
+
+function b() {
+    make build
+}
