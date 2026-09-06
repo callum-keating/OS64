@@ -56,4 +56,4 @@ clean:
 	rm -rf $(BUILD_DIR)
 
 run: build
-	qemu-system-i386 -cdrom $(FINAL_IMG)
+	qemu-system-i386 -cdrom $(FINAL_IMG) -serial stdio
