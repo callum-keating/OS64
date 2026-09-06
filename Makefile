@@ -1,68 +1,59 @@
-.PHONY: all build run clean
+.PHONY: build run clean
 
-BUILD := build
-ISO_DIR := $(BUILD)/iso
-GRUB_DIR := $(ISO_DIR)/boot/grub
 
-KERNEL := $(BUILD)/kernel.elf
-FINAL_IMG := $(BUILD)/kernel.iso
+CC 			:= clang
+CFLAGS 		:= --target=i686-elf -std=gnu23 -ffreestanding -O2 -Wall -Wextra
 
-SRC_DIR := src
-OBJ_DIR := $(BUILD)/objs
-KERNEL_DIR := $(SRC_DIR)/kernel
+LD 			:= ld
+LDFLAGS 	:= -m elf_i386
 
-C_SRCS := $(shell find $(KERNEL_DIR) -name "*.c")
-ASM_SRCS := $(shell find $(KERNEL_DIR) -name "*.S")
+ASM			:= clang
+ASMFLAGS 	:= --target=i686-elf
 
-C_OBJS := $(patsubst $(KERNEL_DIR)/%.c,$(OBJ_DIR)/%.o,$(C_SRCS))
-ASM_OBJS := $(patsubst $(KERNEL_DIR)/%.S,$(OBJ_DIR)/%.o,$(ASM_SRCS))
 
-KERNEL_OBJS := $(C_OBJS) $(ASM_OBJS)
+# locations
+SRC_DIR		:= src
+BUILD_DIR	:= build
+OBJ_DIR		:= $(BUILD_DIR)/objs
+FS_DIR		:= $(BUILD_DIR)/fs
+KERNEL_ELF	:= $(FS_DIR)/boot/kernel.elf
+FINAL_IMG	:= $(BUILD_DIR)/final.img
 
-CC := clang
-LD := ld
-
-CFLAGS := \
-	-Wall \
-	-Wextra \
-	-ffreestanding \
-	-fno-stack-protector \
-	-fno-stack-check \
-	-mno-red-zone \
-	-m64
-
-ASFLAGS := \
-	-m64
-
-LDFLAGS := \
-	-T linker.ld \
-	-m elf_x86_64
-
-all: build
+# kernel files
+KERNEL_SRC_DIR		:= $(SRC_DIR)/kernel
+KERNEL_BUILD_DIR	:= $(OBJ_DIR)/kernel
+KERNEL_LINKERSCRIPT	:= $(KERNEL_SRC_DIR)/linker.ld
+KERNEL_SRC_FILES	:= $(shell find $(KERNEL_SRC_DIR) -name "*.c")
+KERNEL_OBJ_FILES	:= $(patsubst $(KERNEL_SRC_DIR)/%.c,$(KERNEL_BUILD_DIR)/%.o, $(KERNEL_SRC_FILES))
 
 build: $(FINAL_IMG)
 
-$(FINAL_IMG): $(KERNEL)
-	@mkdir -p $(GRUB_DIR)
-	cp $(KERNEL) $(ISO_DIR)/boot/kernel.elf
-	cp grub.cfg $(GRUB_DIR)/grub.cfg
-	grub-mkrescue -o $@ $(ISO_DIR)
 
-$(KERNEL): $(KERNEL_OBJS)
-	@mkdir -p $(BUILD)
-	$(LD) $(LDFLAGS) -o $@ $^
+$(FINAL_IMG): $(KERNEL_ELF)
+	@mkdir -p $(FS_DIR)/boot/grub
+	cp grub.cfg $(FS_DIR)/boot/grub/grub.cfg
+	grub-mkrescue -o $@ $(FS_DIR)
 
-$(OBJ_DIR)/%.o: $(KERNEL_DIR)/%.c
+
+$(KERNEL_ELF): $(KERNEL_OBJ_FILES)
+	@mkdir -p $(dir $@)
+	$(ASM) $(ASMFLAGS) -c $(KERNEL_SRC_DIR)/boot.s -o $(KERNEL_BUILD_DIR)/boot.o
+	$(LD) $(LDFLAGS) -T $(KERNEL_LINKERSCRIPT) -o $@ $^ $(KERNEL_BUILD_DIR)/boot.o
+	@if grub-file --is-x86-multiboot $@; then \
+		printf "\033[32msuccessfully compiled multiboot kernel\033[0m\n"; \
+	else \
+    	echo "error when compiling kernel"; \
+    	exit 1; \
+	fi
+
+
+
+$(KERNEL_BUILD_DIR)/%.o: $(KERNEL_SRC_DIR)/%.c
 	@mkdir -p $(dir $@)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(OBJ_DIR)/%.o: $(KERNEL_DIR)/%.S
-	@mkdir -p $(dir $@)
-	$(CC) $(ASFLAGS) -c $< -o $@
+clean:
+	rm -rf $(BUILD_DIR)
 
 run: build
-	qemu-system-x86_64 -cdrom $(FINAL_IMG)
-
-clean:
-	rm -rf $(BUILD)
-
+	qemu-system-i386 -cdrom $(FINAL_IMG)

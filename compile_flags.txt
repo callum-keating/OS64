@@ -1,0 +1,7 @@
+--target=i686-elf
+-std=gnu23
+-ffreestanding
+-O2
+-Wall
+-Wextra
+
