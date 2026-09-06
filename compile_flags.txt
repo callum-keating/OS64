@@ -4,4 +4,4 @@
 -O2
 -Wall
 -Wextra
-
+-Isrc/kernel/inc

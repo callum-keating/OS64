@@ -2,7 +2,7 @@
 
 
 CC 			:= clang
-CFLAGS 		:= --target=i686-elf -std=gnu23 -ffreestanding -O2 -Wall -Wextra
+CFLAGS 		:= --target=i686-elf -std=gnu23 -ffreestanding -O2 -Wall -Wextra -Isrc/kernel/inc
 
 LD 			:= ld
 LDFLAGS 	:= -m elf_i386
