@@ -19,3 +19,7 @@ function r() {
 function b() {
     make build
 }
+
+function c() {
+    make clean
+}
