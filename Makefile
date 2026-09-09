@@ -51,18 +51,15 @@ build: $(FINAL_IMG)
 
 
 $(FINAL_IMG): $(KERNEL_ELF)
-	@mkdir -p $(FS_DIR)/boot
-	@mkdir -p $(FS_DIR)/boot/limine
-	cp -v limine.conf limine-binary/limine-bios.sys limine-binary/limine-bios-cd.bin limine-binary/limine-uefi-cd.bin $(FS_DIR)/boot/limine/
-	@mkdir -p $(FS_DIR)/EFI/BOOT
-	cp -v limine-binary/BOOTX64.EFI $(FS_DIR)/EFI/BOOT/
-	cp -v limine-binary/BOOTIA32.EFI $(FS_DIR)/EFI/BOOT/
-	xorriso -as mkisofs -R -r -J -b boot/limine/limine-bios-cd.bin \
-        -no-emul-boot -boot-load-size 4 -boot-info-table -hfsplus \
-        -apm-block-size 2048 --efi-boot boot/limine/limine-uefi-cd.bin \
-        -efi-boot-part --efi-boot-image --protective-msdos-label \
-        $(FS_DIR) -o $@
+	dd if=/dev/zero bs=1M count=0 seek=64 of=$@
+	PATH=$PATH:/usr/sbin:/sbin sgdisk $@ -n 1:2048 -t 1:ef00 -m 1
 	./limine-binary/limine bios-install $@
+	mformat -i $@@@1M
+	mmd -i $@@@1M ::/EFI ::/EFI/BOOT ::/boot ::/boot/limine
+	mcopy -i $@@@1M $^ ::/boot
+	mcopy -i $@@@1M limine.conf limine-binary/limine-bios.sys ::/boot/limine
+	mcopy -i $@@@1M limine-binary/BOOTX64.EFI ::/EFI/BOOT
+	mcopy -i $@@@1M limine-binary/BOOTIA32.EFI ::/EFI/BOOT
 
 
 $(KERNEL_ELF): $(KERNEL_OBJ_FILES)
@@ -78,4 +75,4 @@ clean:
 	rm -rf $(BUILD_DIR)
 
 run: build
-	qemu-system-x86_64 -cdrom $(FINAL_IMG) -serial stdio
+	qemu-system-x86_64 -drive file=$(FINAL_IMG),format=raw -serial stdio
