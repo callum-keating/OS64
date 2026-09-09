@@ -23,6 +23,7 @@ CFLAGS 		:= --target=x86_64-elf \
     -mno-sse2 \
     -mno-red-zone \
     -mcmodel=kernel \
+	-Isrc/kernel \
 	-Isrc/kernel/inc
 
 LD 			:= ld
