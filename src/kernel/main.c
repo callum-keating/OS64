@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include <limine.h>
 #include "drivers/serial.h"
+#include "drivers/pci/pci.h"
 #include "limine/boot_data.h"
 
 // Halt and catch fire function.
@@ -23,6 +24,8 @@ void kmain(void) {
     // Fetch the first framebuffer.
     struct limine_framebuffer *framebuffer = boot_data_get_framebuffer_response()->framebuffers[0];
 
+    struct pcieDeviceStruct devices[256] = {0};
+    pci_enumeratePci(devices);
 
     // Print a nice pattern to screen as an example.
     // Note: we assume the framebuffer model is RGB with 32-bit pixels.
@@ -34,7 +37,6 @@ void kmain(void) {
             fb_ptr[y * (framebuffer->pitch / 4) + x] = (nY << 8) | nX;
         }
     }
-
 
     // We're done, just hang...
     hcf();

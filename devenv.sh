@@ -8,6 +8,10 @@ function ekm() {
     nvim $kernel_dir/main.c
 }
 
+function ekd() {
+    nvim $kernel_dir/drivers
+}
+
 function em() {
     nvim Makefile
 }
