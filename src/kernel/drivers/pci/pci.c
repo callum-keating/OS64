@@ -12,7 +12,7 @@ static uint16_t current_port = 0;
 inline void setOffset(uint8_t offset) {
     if (offset & 0x03) {
         write_serial_str("setRegister recived a value that was not DWORD aligned returning without updating register\n"
-                "this can cause major issues");
+                "this can cause major issues\n");
         return;
     }
     current_port = (current_port & 0xFF03) | offset;
@@ -74,15 +74,20 @@ struct pcieDeviceStruct checkDevice(uint16_t bus, uint8_t device) {
     return pciDevice;
 }
 
-void pci_enumeratePci(struct pcieDeviceStruct devices[256]) {
+uint32_t pci_enumeratePci(struct pcieDeviceStruct devices[256]) {
     int devicecount = 0;
     for (uint16_t bus = 0; bus < 256; bus++) {
         for (uint8_t device = 0; device < 16; device++) {
             struct pcieDeviceStruct pciDevice = checkDevice(bus, device);
-            if (pciDevice.vendor_id == 0xFFFF) {
+            if (pciDevice.vendor_id == 0xFFFF)
                 continue;
-            }
+
+            if (devicecount >= 256)
+                return devicecount;
+
+            write_serial_str("PCI DEVICE FOUND\n");
             devices[devicecount++] = pciDevice;
         }
     }
+    return devicecount;
 };

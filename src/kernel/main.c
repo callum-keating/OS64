@@ -5,6 +5,7 @@
 #include "drivers/serial.h"
 #include "drivers/pci/pci.h"
 #include "limine/boot_data.h"
+#include "log.h"
 
 // Halt and catch fire function.
 static void hcf(void) {
@@ -18,14 +19,22 @@ static void hcf(void) {
 // linker script accordingly.
 void kmain(void) {
     init_serial();
-    write_serial_str("Loaded");
+    write_serial_str("Loaded\n");
     boot_data_perform_checks();
 
     // Fetch the first framebuffer.
     struct limine_framebuffer *framebuffer = boot_data_get_framebuffer_response()->framebuffers[0];
 
     struct pcieDeviceStruct devices[256] = {0};
-    pci_enumeratePci(devices);
+    uint32_t devicecount = pci_enumeratePci(devices);
+    for (int i = 0; i < devicecount; i++) {
+        logf("device vendor id 0x%X\n", devices[i].vendor_id);
+        if (devices[i].multifunction) {
+            write_serial_str("device is multifunction\n");
+        } else {
+            write_serial_str("device is not multifunction\n");
+        }
+    }
 
     // Print a nice pattern to screen as an example.
     // Note: we assume the framebuffer model is RGB with 32-bit pixels.

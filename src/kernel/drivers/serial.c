@@ -38,5 +38,4 @@ void write_serial_str(char *str) {
         write_serial(*str);
         str++;
     }
-    write_serial('\n');
 }

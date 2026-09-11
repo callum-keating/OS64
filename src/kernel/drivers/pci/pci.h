@@ -14,4 +14,4 @@ struct pcieDeviceStruct {
     uint16_t    vendor_id;      // Identifies the manufacturer of the device
 };
 
-void pci_enumeratePci(struct pcieDeviceStruct devices[256]);
+uint32_t pci_enumeratePci(struct pcieDeviceStruct devices[256]);
