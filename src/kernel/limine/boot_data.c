@@ -1,6 +1,6 @@
 #include <stdint.h>
 #include <stddef.h>
-#include "drivers/serial.h"
+#include "log.h"
 #include "limine.h"
 #include "limine/limine_requests.h"
 
@@ -16,18 +16,18 @@ static void hcf(void) {
 void boot_data_perform_checks() {
     // Ensure the bootloader actually understands our base revision (see spec).
     if (LIMINE_BASE_REVISION_SUPPORTED(limine_base_revision) == false) {
-        write_serial_str("Limine base revision not supported. halting\n");
+        logf("Limine base revision not supported. halting\n");
         hcf();
     }
 
     // Ensure we got a framebuffer.
     if (framebuffer_request.response == NULL
      || framebuffer_request.response->framebuffer_count < 1) {
-        write_serial_str("Limine has not given a framebuffer. halting\n");
+        logf("Limine has not given a framebuffer. halting\n");
         hcf();
     }
 
-    write_serial_str("Limine checks completed successfully\n");
+    logf("Limine checks completed successfully\n");
 };
 
 struct limine_framebuffer_response *boot_data_get_framebuffer_response() {

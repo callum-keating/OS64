@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include "pci.h"
-#include "drivers/serial.h"
 #include "io.h"
+#include "log.h"
 
 #define CONFIG_ADDRESS  0xCF8       // specifies the configuration address that will be accessed
 #define CONFIG_DATA     0xCFC       // shows that data at the address
@@ -11,7 +11,7 @@ static uint32_t port_data = 0;
 
 inline void setOffset(uint8_t offset) {
     if (offset & 0x03) {
-        write_serial_str("setRegister recived a value that was not DWORD aligned returning without updating register\n"
+        logf("setRegister recived a value that was not DWORD aligned returning without updating register\n"
                 "this can cause major issues\n");
         return;
     }
