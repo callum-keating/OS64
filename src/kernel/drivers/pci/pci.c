@@ -3,11 +3,11 @@
 #include "drivers/serial.h"
 #include "io.h"
 
-#define CONTROL_PORT 0xCF8      // control port // replace with better comment
-#define FORWARDING_PORT 0xCFA   // specifies the bus number the configuration will target
+#define CONFIG_ADDRESS  0xCF8       // specifies the configuration address that will be accessed
+#define CONFIG_DATA     0xCFC       // shows that data at the address
 
 
-static uint16_t current_port = 0;
+static uint32_t port_data = 0;
 
 inline void setOffset(uint8_t offset) {
     if (offset & 0x03) {
@@ -15,21 +15,19 @@ inline void setOffset(uint8_t offset) {
                 "this can cause major issues\n");
         return;
     }
-    current_port = (current_port & 0xFF03) | offset;
+    port_data &= ~0xFCu;
+    port_data |= (offset & 0xFCu);
+    outl(CONFIG_ADDRESS, port_data);
 }
 
 
 inline void selectDevice(uint8_t bus, uint8_t device, uint8_t function) {
-                                    uint8_t data = 0;
-        /* sets function number */  data = 0xF0 | ((function & 0x7) << 1); /* and enables access mechanism */
-                                    outb(CONTROL_PORT, data);
-                                    outb(FORWARDING_PORT, bus);
-                                    //                  set firt two bits to 1 | set device
-                                    current_port = 0xC000 | ((device & 0x0F) << 8);
+    port_data = 0x80000000 | ((uint32_t)(bus & 0xFF) << 16) | ((uint32_t)(device & 0x1F) << 11) | ((uint32_t)(function & 0x7) << 8);
+    outl(CONFIG_ADDRESS, port_data);
 }
 
 inline uint32_t readPort() {
-    return inl(current_port);
+    return inl(CONFIG_DATA);
 }
 
 /*
@@ -77,15 +75,15 @@ struct pcieDeviceStruct checkDevice(uint16_t bus, uint8_t device) {
 uint32_t pci_enumeratePci(struct pcieDeviceStruct devices[256]) {
     int devicecount = 0;
     for (uint16_t bus = 0; bus < 256; bus++) {
-        for (uint8_t device = 0; device < 16; device++) {
+        for (uint8_t device = 0; device < 32; device++) {
             struct pcieDeviceStruct pciDevice = checkDevice(bus, device);
-            if (pciDevice.vendor_id == 0xFFFF)
+            if (pciDevice.vendor_id == 0xFFFF) {
                 continue;
+            }
 
             if (devicecount >= 256)
                 return devicecount;
 
-            write_serial_str("PCI DEVICE FOUND\n");
             devices[devicecount++] = pciDevice;
         }
     }

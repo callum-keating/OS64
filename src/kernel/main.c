@@ -27,8 +27,11 @@ void kmain(void) {
 
     struct pcieDeviceStruct devices[256] = {0};
     uint32_t devicecount = pci_enumeratePci(devices);
+    if (devicecount == 0) {
+        logf("bad alarm\n");
+    }
     for (int i = 0; i < devicecount; i++) {
-        logf("device vendor id 0x%X\n", devices[i].vendor_id);
+        logf("device.class_code = 0x%X\t\tdevice.subclass = 0x%X\n", devices[i].class_code, devices[i].subclass);
         if (devices[i].multifunction) {
             write_serial_str("device is multifunction\n");
         } else {
