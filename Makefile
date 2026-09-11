@@ -52,7 +52,7 @@ build: $(FINAL_IMG)
 
 
 $(FINAL_IMG): $(KERNEL_ELF)
-	dd if=/dev/zero bs=1M count=0 seek=64 of=$@
+	dd if=/dev/zero of=$@ bs=1M count=64
 	PATH=$PATH:/usr/sbin:/sbin sgdisk $@ -n 1:2048 -t 1:ef00 -m 1
 	./limine-binary/limine bios-install $@
 	mformat -i $@@@1M
