@@ -121,6 +121,7 @@ void setup_pts() {
         init();
     }
     setup_bitmap();
+    logf("bitmap: ");
     uint64_t zerocount = 0;
     for (int i = 0; i < bitmap_array_size; i++) {
         for (int b = 0; b < 64; b++) {
