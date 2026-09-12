@@ -116,11 +116,37 @@ static void setup_bitmap() {
     init_bitmap();
 }
 
+
+uintptr_t pmm_alloc_page(void) {
+
+    hcf();
+}
+
+static inline uint64_t *create_skeleton_pml4() {
+    uint64_t *pml4_virt = (bitmap + bitmap_array_size);
+    memset(pml4_virt, 0, 512*sizeof(uint64_t));
+    return pml4_virt;
+}
+
+static void setup_default_pts() {
+    create_skeleton_pml4();
+    for (int i = 0; i < bitmap_array_size; i++) {
+        for (int b = 0; b < 64; b++) {
+            if (((bitmap[i]) >> b) & 1) {
+                // map page table with the hhdm offset
+
+            }
+        }
+    }
+}
+
+
 void setup_pts() {
     if (!done_init) {
         init();
     }
     setup_bitmap();
+    setup_default_pts();
     logf("bitmap: ");
     uint64_t zerocount = 0;
     for (int i = 0; i < bitmap_array_size; i++) {
@@ -135,6 +161,8 @@ void setup_pts() {
             zerocount++;
         }
     }
+    if (zerocount > 0)
+        logf("(0*%d)", zerocount);
     logf("\n");
     initialised_pages = true;
 }

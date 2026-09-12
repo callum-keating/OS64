@@ -50,6 +50,7 @@ void kmain(void) {
     }
 
     setup_pts();
+    logf("ran eveything. halting\n");
     // We're done, just hang...
     hcf();
 }
