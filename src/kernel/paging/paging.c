@@ -59,7 +59,7 @@ static void traverse_memmap() {
             logf("found other memory type. type is %d, base: %p, length: %d\n", current_entry->type, current_entry->base, current_entry->length);
         }
     }
-    logf("the largest free entry is of type: %d, its base and lengths are %d and %d", largest_free_entry->type, largest_free_entry->base, largest_free_entry->length);
+    logf("the largest free entry is of type: %d, its base and lengths are %d and %d\n", largest_free_entry->type, largest_free_entry->base, largest_free_entry->length);
 }
 
 uintptr_t alloc_phys_page(void) {
