@@ -76,4 +76,7 @@ clean:
 	rm -rf $(BUILD_DIR)
 
 run: build
-	qemu-system-x86_64 -drive file=$(FINAL_IMG),format=raw -serial stdio
+	qemu-system-x86_64 -drive file=$(FINAL_IMG),format=raw -serial stdio -m 1024M
+
+run-uefi: build
+	qemu-system-x86_64 -drive file=build/final.img,format=raw -drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd -drive if=pflash,format=raw,file=./OVMF_VARS_4M.fd -serial stdio -m 1024M

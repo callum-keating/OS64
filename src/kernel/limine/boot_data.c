@@ -3,15 +3,7 @@
 #include "log.h"
 #include "limine.h"
 #include "limine/limine_requests.h"
-
-
-
-// Halt and catch fire function.
-static void hcf(void) {
-    for (;;) {
-        asm ("hlt");
-    }
-}
+#include "hcf.h"
 
 void boot_data_perform_checks() {
     // Ensure the bootloader actually understands our base revision (see spec).
@@ -27,9 +19,27 @@ void boot_data_perform_checks() {
         hcf();
     }
 
+    if (rsdp_request.response == NULL) {
+        logf("Limine has not given an RSDP. halting\n");
+        hcf();
+    };
+
+    logf("HHDM offset: %p\n", hhdm_request.response->offset);
     logf("Limine checks completed successfully\n");
 };
 
 struct limine_framebuffer_response *boot_data_get_framebuffer_response() {
     return framebuffer_request.response;
+}
+
+struct limine_rsdp_response *boot_data_get_rsdp_response() {
+    return rsdp_request.response;
+};
+
+struct limine_hhdm_response *boot_data_get_hhdm_response() {
+    return hhdm_request.response;
+};
+
+struct limine_memmap_response *boot_data_get_memmap_response() {
+    return memorymap_request.response;
 }

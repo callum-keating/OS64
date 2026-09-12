@@ -12,6 +12,14 @@ function ekd() {
     nvim $kernel_dir/drivers
 }
 
+function ekl() {
+    nvim $kernel_dir/limine
+}
+
+function ekp() {
+    nvim $kernel_dir/paging
+}
+
 function em() {
     nvim Makefile
 }

@@ -2,17 +2,16 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <limine.h>
+
 #include "drivers/serial.h"
 #include "drivers/pci/pci.h"
+#include "drivers/acpi/acpi.h"
 #include "limine/boot_data.h"
-#include "log.h"
 
-// Halt and catch fire function.
-static void hcf(void) {
-    for (;;) {
-        asm ("hlt");
-    }
-}
+#include "paging/paging.h"
+
+#include "log.h"
+#include "hcf.h"
 
 // The following will be our kernel's entry point.
 // If renaming kmain() to something else, make sure to change the
@@ -50,6 +49,7 @@ void kmain(void) {
         }
     }
 
+    setup_pts();
     // We're done, just hang...
     hcf();
 }
