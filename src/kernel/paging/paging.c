@@ -1,18 +1,24 @@
 #include "limine.h"
 #include "limine/boot_data.h"
 #include "log.h"
+#include "memory/string.h"
 #include <stdint.h>
 #include <stddef.h>
 #define PAGE_SIZE 4096
 
+struct traversed_data {
+    struct limine_memmap_entry *highest_memmap_entry;
+    uint64_t memory_len;
+};
+
+
 static uint64_t hhdm_offset = 0;
 static struct limine_memmap_response *memmap = NULL;
+static struct traversed_data memmap_data = {0};
 bool done_init = false;
 bool initialised_pages = false;
-
-static uint8_t *page_bitmap;
-static uint64_t total_pages;
-
+uint64_t *bitmap = NULL;
+uint64_t bitmap_array_size = 0;
 
 static void init() {
     hhdm_offset = boot_data_get_hhdm_response()->offset;
@@ -37,46 +43,53 @@ uintptr_t virt_to_phys(uint64_t virt) {
 }
 
 static void traverse_memmap() {
-    uint64_t memAmount = 0;
-    struct limine_memmap_entry *largest_free_entry = memmap->entries[0];
-    for (int i = 0; i < memmap->entry_count; i++) {
-        struct limine_memmap_entry *current_entry = memmap->entries[i];
+    for (uint64_t i = 0; i < memmap->entry_count; i++) {
+        struct limine_memmap_entry *entry = memmap->entries[i];
 
-        uint64_t end = current_entry->base + current_entry->length;
-        if (end > memAmount)
-            memAmount = end;
+        uint64_t end = entry->base + entry->length;
 
-        if (current_entry->type == LIMINE_MEMMAP_USABLE) {
-            logf("found usable memory! base: %p length:%d\n", current_entry->base, current_entry->length);
+        logf("memmap %d: base=%x:%x length=%x:%x end=%x:%x type=%d\n",
+             (int)i,
 
-            if (current_entry->length > largest_free_entry->length) {
-                largest_free_entry = current_entry;
-            }
+             (uint32_t)(entry->base >> 32),
+             (uint32_t)entry->base,
 
-        } else if (current_entry->type == LIMINE_MEMMAP_EXECUTABLE_AND_MODULES) {
-            logf("Found area where kernel is. this must be recorded and mapped, base: %p length: %d\n", current_entry->base, current_entry->length);
-        } else {
-            logf("found other memory type. type is %d, base: %p, length: %d\n", current_entry->type, current_entry->base, current_entry->length);
+             (uint32_t)(entry->length >> 32),
+             (uint32_t)entry->length,
+
+             (uint32_t)(end >> 32),
+             (uint32_t)end,
+
+             (int)entry->type);
+
+        // check if current memmap entry is the highest
+        if (memmap_data.highest_memmap_entry == NULL) {
+            if (entry->type == LIMINE_MEMMAP_USABLE)
+                memmap_data.highest_memmap_entry = entry;
+            continue;
+        }
+        if (entry->base + entry->length > memmap_data.highest_memmap_entry->base + memmap_data.highest_memmap_entry->length && entry->type == LIMINE_MEMMAP_USABLE) {
+            memmap_data.highest_memmap_entry = entry;
         }
     }
-    logf("the largest free entry is of type: %d, its base and lengths are %d and %d\n", largest_free_entry->type, largest_free_entry->base, largest_free_entry->length);
+    memmap_data.memory_len = memmap_data.highest_memmap_entry->base + memmap_data.highest_memmap_entry->length;
 }
 
-uintptr_t alloc_phys_page(void) {
-
-}
-
-void map_page(uintptr_t va, uintptr_t pa, uint64_t flags) {
-}
-
-static int setup_blank_pts() {
+static void setup_bitmap() {
     traverse_memmap();
+    uint64_t page_count = (memmap_data.memory_len + PAGE_SIZE - 1) / PAGE_SIZE;
+
+    // set to the array count of bitmap
+    bitmap_array_size = ((page_count + 7) / 8 + sizeof(uint64_t) - 1) / sizeof(uint64_t);
+    logf("array size: %d\n", bitmap_array_size);
+    bitmap = (uint64_t *)phys_to_virt(memmap_data.highest_memmap_entry->base);
+    memset(bitmap, 0xFF, bitmap_array_size * sizeof(uint64_t));
 }
 
 void setup_pts() {
     if (!done_init) {
         init();
     }
-    setup_blank_pts();
+    setup_bitmap();
     initialised_pages = true;
 }
