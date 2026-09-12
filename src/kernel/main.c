@@ -29,7 +29,7 @@ void kmain(void) {
     if (devicecount == 0) {
         logf("bad alarm\n");
     }
-    for (int i = 0; i < devicecount; i++) {
+    for (uint32_t i = 0; i < devicecount; i++) {
         logf("device.class_code = 0x%X\t\tdevice.subclass = 0x%X\n", devices[i].class_code, devices[i].subclass);
         if (devices[i].multifunction) {
             logf("device is multifunction\n");
