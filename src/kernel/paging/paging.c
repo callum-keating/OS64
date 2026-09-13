@@ -77,6 +77,7 @@ static void fill_memmap_data() {
 }
 
 static void init_bitmap() {
+    bitmap = (uint64_t *)phys_to_virt(memmap_data.highest_memmap_entry->base);
     memset(bitmap, 0xFF, bitmap_array_size * sizeof(uint64_t));
     for (uint64_t i = 0; i < memmap->entry_count; i++) {
         struct limine_memmap_entry *entry = memmap->entries[i];
@@ -107,46 +108,55 @@ static void setup_bitmap() {
 
     // set to the array count of bitmap
     bitmap_array_size = ((page_count + 7) / 8 + sizeof(uint64_t) - 1) / sizeof(uint64_t);
-    if (memmap_data.memory_len < bitmap_array_size) {
+    uint64_t bitmap_bytes = bitmap_array_size * sizeof(uint64_t);
+
+    // check if there is enough memory to store the bitmap
+    if (bitmap_bytes > memmap_data.highest_memmap_entry->length) {
         logf("Not enough memory for paging bitmap. halting\n");
         hcf();
-    };
+    }
     logf("array size: %d\n", bitmap_array_size);
-    bitmap = (uint64_t *)phys_to_virt(memmap_data.highest_memmap_entry->base);
     init_bitmap();
+}
+
+static void mark_used(uint64_t physaddr, uint64_t byte_amount) {
+    uint64_t frame_amount =
+        (byte_amount + PAGE_SIZE - 1) / PAGE_SIZE;
+
+    uint64_t first_frame = physaddr / PAGE_SIZE;
+
+    for (uint64_t i = 0; i < frame_amount; i++) {
+        uint64_t frame = first_frame + i;
+        bitmap[frame / 64] |= 1ULL << (frame % 64);
+    }
 }
 
 
 uintptr_t pmm_alloc_page(void) {
-
     hcf();
 }
+
 
 static inline uint64_t *create_skeleton_pml4() {
     uint64_t *pml4_virt = (bitmap + bitmap_array_size);
     memset(pml4_virt, 0, 512*sizeof(uint64_t));
+
+    // the second param will be one but this is a good example of how to calculate it so i'll keep it
+    mark_used(virt_to_phys((uint64_t)pml4_virt), 512 * sizeof(uint64_t));
     return pml4_virt;
 }
 
-static void setup_default_pts() {
-    create_skeleton_pml4();
-    for (int i = 0; i < bitmap_array_size; i++) {
-        for (int b = 0; b < 64; b++) {
-            if (((bitmap[i]) >> b) & 1) {
-                // map page table with the hhdm offset
-
-            }
-        }
-    }
+void map_pages() {
+    // this function will create basic page tables that should be similar to the ones already made by limine
+    // It will use the HHDM and the bitmap to create pages for each one
+    // Framebuffer is mapped with HHDM so it should continue functioning after kernel switches to custom pages
 }
-
 
 void setup_pts() {
     if (!done_init) {
         init();
     }
     setup_bitmap();
-    setup_default_pts();
     logf("bitmap: ");
     uint64_t zerocount = 0;
     for (int i = 0; i < bitmap_array_size; i++) {
@@ -164,5 +174,9 @@ void setup_pts() {
     if (zerocount > 0)
         logf("(0*%d)", zerocount);
     logf("\n");
+    // now that the bitmap is created we need the Paging tables
+    create_skeleton_pml4();     // create PML4
+    map_pages();
+
     initialised_pages = true;
 }
