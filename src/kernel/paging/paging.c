@@ -20,6 +20,7 @@ bool done_init = false;
 bool initialised_pages = false;
 uint64_t *bitmap = NULL;
 uint64_t bitmap_array_size = 0;
+uint64_t *pml4_virt = NULL;
 
 static void init() {
     hhdm_offset = boot_data_get_hhdm_response()->offset;
@@ -132,13 +133,25 @@ static void mark_used(uint64_t physaddr, uint64_t byte_amount) {
 }
 
 
-uintptr_t pmm_alloc_page(void) {
-    hcf();
+uintptr_t pmm_alloc_page(uint64_t frame, uint64_t virt_addr) {
+    // now we need to iterate through the PML4 to see if there is a PDPT
+
+    for (int i = 0; i < 512; i++) {
+        
+    }
+
+    // if so iterate through PDPT for a PD if not create one and map it
+
+    // find avalible slot in PD (if none then create another PD go recursively up to PML4)
+
+    // once slot is found create PT for frame
+
+    return 0;
 }
 
 
 static inline uint64_t *create_skeleton_pml4() {
-    uint64_t *pml4_virt = (bitmap + bitmap_array_size);
+    pml4_virt = (bitmap + bitmap_array_size);
     memset(pml4_virt, 0, 512*sizeof(uint64_t));
 
     // the second param will be one but this is a good example of how to calculate it so i'll keep it
@@ -146,10 +159,15 @@ static inline uint64_t *create_skeleton_pml4() {
     return pml4_virt;
 }
 
-void map_pages() {
+void map_initial_pages() {
     // this function will create basic page tables that should be similar to the ones already made by limine
     // It will use the HHDM and the bitmap to create pages for each one
     // Framebuffer is mapped with HHDM so it should continue functioning after kernel switches to custom pages
+    for (int i = 0; i < bitmap_array_size; i++) {
+        if (bitmap[i]) {
+            pmm_alloc_page(i);
+        }
+    }
 }
 
 void setup_pts() {
@@ -176,7 +194,7 @@ void setup_pts() {
     logf("\n");
     // now that the bitmap is created we need the Paging tables
     create_skeleton_pml4();     // create PML4
-    map_pages();
+    map_initial_pages();
 
     initialised_pages = true;
 }
