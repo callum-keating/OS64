@@ -8,8 +8,6 @@
 #include "drivers/acpi/acpi.h"
 #include "limine/boot_data.h"
 
-#include "paging/paging.h"
-
 #include "log.h"
 #include "hcf.h"
 
@@ -49,7 +47,6 @@ void kmain(void) {
         }
     }
 
-    setup_pts();
     logf("ran eveything. halting\n");
     // We're done, just hang...
     hcf();
