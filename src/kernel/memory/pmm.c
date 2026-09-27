@@ -23,12 +23,14 @@
 
 typedef struct {
     uint64_t *location;
+    // the length is in BYTES
     uint16_t length;
 } bitmap_t;
 
 static bitmap_t bitmap = {0};
+struct limine_memmap_response *memmap = {0};
 
-inline bitmap_t create_bitmap(struct limine_memmap_response *memmap) {
+inline bitmap_t find_location_for_bitmap() {
     struct limine_memmap_entry *largest_free_section = NULL;
     struct limine_memmap_entry *last_free_section = NULL;
 
@@ -57,16 +59,21 @@ inline bitmap_t create_bitmap(struct limine_memmap_response *memmap) {
     // set bitmap data
     bitmap.location = &largest_free_section->base;
     bitmap.length = (last_free_section->base + largest_free_section->length) / PAGE_SIZE / 8;
+}
 
-    // zero bitmap
+inline void fill_bitmap() {
+    // initially set the bitmap to 0 aka unused
+    logf("bitmap: ");
     for (int i = 0; i < bitmap.length; i++) {
-        uint8_t *current_area = (uint8_t *)bitmap.location;
-        // if the type of the current area is usable mark 0 otherwize mark 1
+        bitmap.location[i] = 0;
+        logf("%d", bitmap.location[i]);
     }
+    logf("\n");
 }
 
 int init() {
-    struct limine_memmap_response *memmap = boot_data_get_memmap_response();
-    create_bitmap(memmap);
+    memmap = boot_data_get_memmap_response();
+    find_location_for_bitmap();
+    fill_bitmap();
     return 0;
 }
