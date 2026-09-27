@@ -7,6 +7,7 @@
 #include "drivers/pci/pci.h"
 #include "drivers/acpi/acpi.h"
 #include "limine/boot_data.h"
+#include "memory/pmm.h"
 
 #include "log.h"
 #include "hcf.h"
@@ -47,6 +48,7 @@ void kmain(void) {
         }
     }
 
+    init();
     logf("ran eveything. halting\n");
     // We're done, just hang...
     hcf();

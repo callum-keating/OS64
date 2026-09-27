@@ -16,8 +16,12 @@ function ekl() {
     nvim $kernel_dir/limine
 }
 
-function ekp() {
-    nvim $kernel_dir/paging
+function ekmem() {
+    nvim $kernel_dir/memory
+}
+
+function ekmemp() {
+    nvim $kernel_dir/memory/pmm.c
 }
 
 function em() {
