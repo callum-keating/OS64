@@ -33,6 +33,7 @@ inline bitmap_t create_bitmap(struct limine_memmap_response *memmap) {
     struct limine_memmap_entry *last_free_section = NULL;
 
 
+    // find bitmap location
     for (int i = 0; i < memmap->entry_count; i++) {
         struct limine_memmap_entry *current_entry = memmap->entries[i];
         uint64_t current_len = current_entry->length;
@@ -51,6 +52,16 @@ inline bitmap_t create_bitmap(struct limine_memmap_response *memmap) {
         hcf();
     } else {
         logf("enough memory to hold paging bitmap #good\n");
+    }
+
+    // set bitmap data
+    bitmap.location = &largest_free_section->base;
+    bitmap.length = (last_free_section->base + largest_free_section->length) / PAGE_SIZE / 8;
+
+    // zero bitmap
+    for (int i = 0; i < bitmap.length; i++) {
+        uint8_t *current_area = (uint8_t *)bitmap.location;
+        // if the type of the current area is usable mark 0 otherwize mark 1
     }
 }
 
