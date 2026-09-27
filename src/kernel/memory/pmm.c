@@ -16,34 +16,46 @@
 #include "limine/boot_data.h"
 #include "limine.h"
 #include "log.h"
+#include "hcf.h"
+#include "memory/addr.h"
 #include <stdint.h>
+#include <stddef.h>
 
-inline uintptr_t find_bitmap_location(struct limine_memmap_response *memmap) {
-    uint64_t largest_free_section = 0;
-    uint64_t len_of_largest = 0;
+typedef struct {
+    uint64_t *location;
+    uint16_t length;
+} bitmap_t;
 
-    uint64_t last_free_section = 0;
-    uint64_t len_of_last = 0;
+static bitmap_t bitmap = {0};
+
+inline bitmap_t create_bitmap(struct limine_memmap_response *memmap) {
+    struct limine_memmap_entry *largest_free_section = NULL;
+    struct limine_memmap_entry *last_free_section = NULL;
 
 
-    int i;
-    for (i = 0; i < memmap->entry_count; i++) {
+    for (int i = 0; i < memmap->entry_count; i++) {
         struct limine_memmap_entry *current_entry = memmap->entries[i];
         uint64_t current_len = current_entry->length;
-
-        if (current_len > len_of_largest && current_entry->type == LIMINE_MEMMAP_USABLE) {
-            len_of_largest = current_len;
-            largest_free_section = i;
+        if (largest_free_section == NULL) {
+            largest_free_section = current_entry;
         }
+        if (current_len > largest_free_section->length && current_entry->type == LIMINE_MEMMAP_USABLE) {
+            largest_free_section = current_entry;
+        }
+        last_free_section = memmap->entries[i];
     }
 
-    if () {
-    
+    // if the largest free section is too small to fit the bitmap
+    if (largest_free_section->length < (last_free_section->base + largest_free_section->length) / PAGE_SIZE / 8) {
+        logf("largest: %p\tlast: %p\n", largest_free_section, last_free_section);
+        hcf();
+    } else {
+        logf("enough memory to hold paging bitmap #good\n");
     }
 }
 
 int init() {
     struct limine_memmap_response *memmap = boot_data_get_memmap_response();
-    find_bitmap_location(memmap);
+    create_bitmap(memmap);
     return 0;
 }
