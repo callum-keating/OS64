@@ -24,7 +24,7 @@
 typedef struct {
     uint64_t *location;
     // the length is in BYTES
-    uint16_t length;
+    uint64_t length;
 } bitmap_t;
 
 static bitmap_t bitmap = {0};
@@ -33,24 +33,26 @@ uint64_t hhdm_offset = 0;
 
 inline void find_location_for_bitmap() {
     struct limine_memmap_entry *largest_free_section = NULL;
-    struct limine_memmap_entry *last_free_section = NULL;
+    uint64_t highest_usable = 0;
 
-
-    // find bitmap location
+    // find the largest usable section and the top of usable memory
     for (uint64_t i = 0; i < memmap->entry_count; i++) {
         struct limine_memmap_entry *current_entry = memmap->entries[i];
-        uint64_t current_len = current_entry->length;
-        if (largest_free_section == NULL) {
+        if (current_entry->type != LIMINE_MEMMAP_USABLE) continue;
+
+        uint64_t end = current_entry->base + current_entry->length;
+        if (end > highest_usable) highest_usable = end;
+
+        if (largest_free_section == NULL || current_entry->length > largest_free_section->length) {
             largest_free_section = current_entry;
         }
-        if (current_len > largest_free_section->length && current_entry->type == LIMINE_MEMMAP_USABLE) {
-            largest_free_section = current_entry;
-        }
-        last_free_section = memmap->entries[i];
     }
 
+    // one bit per frame covering all usable memory, rounded up to whole bytes
+    bitmap.length = (highest_usable / PAGE_SIZE + 7) / 8;
+
     // if the largest free section is too small to fit the bitmap
-    if (largest_free_section->length < (last_free_section->base + largest_free_section->length) / PAGE_SIZE / 8) {
+    if (largest_free_section == NULL || largest_free_section->length < bitmap.length) {
         logf("NOT ENOUGH MEMORY TO STORE BITMAP #STOPPING\n");
         hcf();
     } else {
@@ -59,53 +61,66 @@ inline void find_location_for_bitmap() {
 
     // set bitmap data
     bitmap.location = (uint64_t *)(largest_free_section->base + hhdm_offset);
-    bitmap.length = (largest_free_section->base + hhdm_offset + largest_free_section->length) / PAGE_SIZE / 8;
 }
 
 void fill_bitmap() {
-    // initially set the bitmap to 0 aka unused
-    for (int i = 0; i < bitmap.length; i++) {
-        bitmap.location[i] = 0;
+    uint8_t *bits = (uint8_t *)bitmap.location;
+
+    // mark every frame as used first, so gaps and reserved memory are never handed out
+    for (uint64_t i = 0; i < bitmap.length; i++) {
+        bits[i] = 0xFF;
     }
 
-    // now set to 1 if the type is LIMINE_MEMMAP_USABLE
+    // free the frames that limine reported as usable
     for (uint64_t i = 0; i < memmap->entry_count; i++) {
         struct limine_memmap_entry *current_entry = memmap->entries[i];
-        if (current_entry->type == LIMINE_MEMMAP_USABLE) {
-            uint64_t frame = current_entry->base / PAGE_SIZE;
-            uint64_t second = (current_entry->base + current_entry->length) / PAGE_SIZE;
-            uint64_t loopnum = second - frame;
-            logf("frame = %d\tcurrent_entry->base + current_entry->length = %d\tloopnum = %d\n", frame, second, loopnum);
-            for (frame = current_entry->base / PAGE_SIZE; frame < (current_entry->base + current_entry->length) / PAGE_SIZE; frame++) {
-                logf("The entry is %d loopnum is %d\n", i, loopnum--);
+        if (current_entry->type != LIMINE_MEMMAP_USABLE) continue;
 
-            }
-            logf("LOOPNUM IS NOW AT: %d\n", loopnum);
+        uint64_t first = current_entry->base / PAGE_SIZE;
+        uint64_t last = (current_entry->base + current_entry->length) / PAGE_SIZE;
+        for (uint64_t frame = first; frame < last; frame++) {
+            bits[frame / 8] &= (uint8_t)~(1u << (frame % 8));
         }
     }
+
+    // reserve the frames the bitmap itself occupies
+    uint64_t bitmap_phys = (uint64_t)bitmap.location - hhdm_offset;
+    uint64_t first = bitmap_phys / PAGE_SIZE;
+    uint64_t last = (bitmap_phys + bitmap.length + PAGE_SIZE - 1) / PAGE_SIZE;
+    for (uint64_t frame = first; frame < last; frame++) {
+        bits[frame / 8] |= (uint8_t)(1u << (frame % 8));
+    }
+
     logf("I HAVE RUN\n");
 }
 
 [[maybe_unused]]
 static void log_bitmap() {
     logf("bitmap: ");
-    int repcount = 0;
-    int last = 2;
-    for (int i = 0; i < bitmap.length; i++) {
-        for (int offset = 0; offset < 8; offset++) {
-            if (last == 2) {
-                last = bitmap.location[i];
-            }
-            if ((bitmap.location[i] & 1 >> offset) == last) {
-                repcount++;
-                continue;
-            }
-            logf("%d*%d\n", last,repcount);
-            repcount = 0;
-            last = bitmap.location[i];
-        }
+
+    uint8_t *bits = (uint8_t *)bitmap.location;
+    uint64_t total_bits = (uint64_t)bitmap.length * 8;
+
+    if (total_bits == 0) {
+        logf("\n");
+        return;
     }
-    logf("%d*%d\n", last,repcount);
+
+    int last = bits[0] & 1;
+    uint64_t repcount = 0;
+
+    for (uint64_t bit = 0; bit < total_bits; bit++) {
+        int current = (bits[bit / 8] >> (bit % 8)) & 1;
+        if (current == last) {
+            repcount++;
+            continue;
+        }
+        logf("%d*%u  ", last, (unsigned)repcount);
+        last = current;
+        repcount = 1;
+    }
+
+    logf("%d*%u  ", last, (unsigned)repcount);
     logf("\n");
 }
 
