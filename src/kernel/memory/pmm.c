@@ -9,7 +9,7 @@
  * This implementation uses 4096 byte (4 KiB) frames
  * This implementation uses a [bitmap page allocator](https://www.amagicsoft.com/wiki/bitmap-allocator.html)
  * It builds the initial list of free frames from limines memory map
- *
+ * 1 = used and 0 = free
  * __________________________________________________________________________________________________________________
 */
 
@@ -17,12 +17,13 @@
 #include "limine.h"
 #include "log.h"
 #include "hcf.h"
+#include "pmm.h"
 #include "memory/addr.h"
 #include <stdint.h>
 #include <stddef.h>
 
 typedef struct {
-    uint64_t *location;
+    uint8_t *location;
     // the length is in BYTES
     uint64_t length;
 } bitmap_t;
@@ -60,11 +61,11 @@ inline void find_location_for_bitmap() {
     }
 
     // set bitmap data
-    bitmap.location = (uint64_t *)(largest_free_section->base + hhdm_offset);
+    bitmap.location = (uint8_t *)(largest_free_section->base + hhdm_offset);
 }
 
 void fill_bitmap() {
-    uint8_t *bits = (uint8_t *)bitmap.location;
+    uint8_t *bits = bitmap.location;
 
     // mark every frame as used first, so gaps and reserved memory are never handed out
     for (uint64_t i = 0; i < bitmap.length; i++) {
@@ -98,7 +99,7 @@ void fill_bitmap() {
 static void log_bitmap() {
     logf("bitmap: ");
 
-    uint8_t *bits = (uint8_t *)bitmap.location;
+    uint8_t *bits = bitmap.location;
     uint64_t total_bits = (uint64_t)bitmap.length * 8;
 
     if (total_bits == 0) {
@@ -130,6 +131,28 @@ int pmm_init() {
     find_location_for_bitmap();
     fill_bitmap();
     log_bitmap();
+    int run = 1;
+    int i = 0;
+    while (run) {
+        int thing = pmm_alloc_frame();
+        if (thing == 0)
+            run = 0;
+        i++;
+    }
+    logf("%d\n", i);
+    log_bitmap();
+    return 0;
+}
 
+uint64_t pmm_alloc_frame() {
+    for (uint64_t i = 0; i < bitmap.length; i++) {
+        for (int b = 0; b < 8; b++) {
+            if (((bitmap.location[i] >> b) & 1) == 1) continue;
+
+            bitmap.location[i] |= (1u << b);
+            return ((uint64_t)i * 8 + (uint64_t)b) * PAGE_SIZE;
+        }
+    }
+    logf("NONE FREE\n");
     return 0;
 }
