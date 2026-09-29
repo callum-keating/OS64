@@ -24,6 +24,10 @@ function ekmemp() {
     nvim $kernel_dir/memory/pmm.c
 }
 
+function ekmemv() {
+    nvim $kernel_dir/memory/vmm.c
+}
+
 function em() {
     nvim Makefile
 }
