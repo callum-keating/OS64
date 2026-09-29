@@ -156,3 +156,10 @@ uint64_t pmm_alloc_frame() {
     logf("NONE FREE\n");
     return 0;
 }
+
+void pmm_free_frame(uint64_t phys) {
+    uint64_t frame = phys / PAGE_SIZE;
+    if (frame >= (uint64_t)bitmap.length * 8) return;
+    bitmap.location[frame / 8] &= (uint8_t)~(1u << (frame % 8));
+
+}
