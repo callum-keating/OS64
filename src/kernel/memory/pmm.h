@@ -1,1 +1,1 @@
-int init();
+int pmm_init();

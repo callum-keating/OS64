@@ -124,7 +124,7 @@ static void log_bitmap() {
     logf("\n");
 }
 
-int init() {
+int pmm_init() {
     memmap = boot_data_get_memmap_response();
     hhdm_offset = boot_data_get_hhdm_response()->offset;
     find_location_for_bitmap();
