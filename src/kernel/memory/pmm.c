@@ -129,16 +129,6 @@ int pmm_init() {
     find_location_for_bitmap();
     fill_bitmap();
     log_bitmap();
-    int run = 1;
-    int i = 0;
-    while (run) {
-        int thing = pmm_alloc_frame();
-        if (thing == 0)
-            run = 0;
-        i++;
-    }
-    logf("%d\n", i);
-    log_bitmap();
     return 0;
 }
 
