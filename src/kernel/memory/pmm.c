@@ -30,7 +30,6 @@ typedef struct {
 
 static bitmap_t bitmap = {0};
 struct limine_memmap_response *memmap = {0};
-uint64_t hhdm_offset = 0;
 
 inline void find_location_for_bitmap() {
     struct limine_memmap_entry *largest_free_section = NULL;
@@ -127,7 +126,6 @@ static void log_bitmap() {
 
 int pmm_init() {
     memmap = boot_data_get_memmap_response();
-    hhdm_offset = boot_data_get_hhdm_response()->offset;
     find_location_for_bitmap();
     fill_bitmap();
     log_bitmap();

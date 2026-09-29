@@ -8,6 +8,7 @@
 #include "drivers/acpi/acpi.h"
 #include "limine/boot_data.h"
 #include "memory/pmm.h"
+#include "memory/addr.h"
 
 #include "log.h"
 #include "hcf.h"
@@ -48,6 +49,7 @@ void kmain(void) {
         }
     }
 
+    generalmm_init();
     pmm_init();
     logf("ran eveything. halting\n");
     // We're done, just hang...

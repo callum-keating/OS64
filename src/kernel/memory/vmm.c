@@ -11,4 +11,12 @@
  * After the inital paging structure has been made it uses 
  * ________________________________________________________________________________________________
 */
+#include "memory/pmm.h"
+#include "memory/addr.h"
+#include <stdint.h>
 
+static uint64_t (*pml4)[512];
+
+void vmm_init() {
+    pml4 = (uint64_t (*)[512])(pmm_alloc_frame() + hhdm_offset);
+}
