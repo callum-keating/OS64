@@ -21,14 +21,6 @@
 #include "memory/addr.h"
 #include <stdint.h>
 #include <stddef.h>
-
-typedef struct {
-    uint8_t *location;
-    // the length is in BYTES
-    uint64_t length;
-} bitmap_t;
-
-static bitmap_t bitmap = {0};
 struct limine_memmap_response *memmap = {0};
 
 inline void find_location_for_bitmap() {
