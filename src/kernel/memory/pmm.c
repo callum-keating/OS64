@@ -69,7 +69,7 @@ void fill_bitmap() {
         if (current_entry->type != LIMINE_MEMMAP_USABLE) continue;
 
         uint64_t first = current_entry->base / PAGE_SIZE;
-        uint64_t last = (current_entry->base + current_entry->length) / PAGE_SIZE;
+        uint64_t last = (current_entry->base + current_entry->length + PAGE_SIZE - 1) / PAGE_SIZE;
         for (uint64_t frame = first; frame < last; frame++) {
             bits[frame / 8] &= (uint8_t)~(1u << (frame % 8));
         }
