@@ -24,6 +24,21 @@ void boot_data_perform_checks() {
         hcf();
     };
 
+    if (executable_address_request.response == NULL) {
+        logf("Limine has not given executable addresses. halting\n");
+        hcf();
+    }
+
+    if (paging_mode_request.response == NULL
+            || paging_mode_request.response->mode != LIMINE_PAGING_MODE_X86_64_4LVL) {
+        logf("Limine is not using 4-level paging. halting\n");
+        hcf();
+    }
+
+    logf("kernel phys=%p virt=%p\n",
+     executable_address_request.response->physical_base,
+     executable_address_request.response->virtual_base);
+
     logf("HHDM offset: %p\n", hhdm_request.response->offset);
     logf("Limine checks completed successfully\n");
 };
@@ -42,4 +57,12 @@ struct limine_hhdm_response *boot_data_get_hhdm_response() {
 
 struct limine_memmap_response *boot_data_get_memmap_response() {
     return memorymap_request.response;
+}
+
+struct limine_executable_address_response *boot_data_get_executable_address_response(void) {
+    return executable_address_request.response;
+}
+
+struct limine_paging_mode_response *boot_data_get_paging_mode_response(void) {
+    return paging_mode_request.response;
 }

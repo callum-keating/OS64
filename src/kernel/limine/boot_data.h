@@ -6,3 +6,5 @@ struct limine_framebuffer_response *boot_data_get_framebuffer_response();
 struct limine_rsdp_response *boot_data_get_rsdp_response();
 struct limine_hhdm_response *boot_data_get_hhdm_response();
 struct limine_memmap_response *boot_data_get_memmap_response();
+struct limine_executable_address_response *boot_data_get_executable_address_response(void);
+struct limine_paging_mode_response *boot_data_get_paging_mode_response(void);
