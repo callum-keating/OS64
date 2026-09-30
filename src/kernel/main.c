@@ -54,6 +54,5 @@ void kmain(void) {
     pmm_init();
     vmm_init();
     logf("ran eveything. halting\n");
-    // We're done, just hang...
     hcf();
 }

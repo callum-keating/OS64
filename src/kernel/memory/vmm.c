@@ -15,7 +15,9 @@
 #include "memory/vmm.h"
 #include "memory/pmm.h"
 #include "memory/addr.h"
+#include "limine/boot_data.h"
 #include "log.h"
+#include "hcf.h"
 #include <stdint.h>
 #include <stddef.h>
 
@@ -25,6 +27,17 @@
 #define REC_PT    0xFFFFFF0000000000ULL  /* (R,·,·,·) */
 
 static uint64_t *pml4;
+
+extern uint8_t __kernel_start[];
+extern uint8_t __kernel_end[];
+extern uint8_t __text_start[];
+extern uint8_t __text_end[];
+extern uint8_t __rodata_start[];
+extern uint8_t __rodata_end[];
+extern uint8_t __data_start[];
+extern uint8_t __data_end[];
+extern uint8_t __bss_start[];
+extern uint8_t __bss_end[];
 
 static uint64_t *phys_to_virt(uint64_t phys) {
     return (uint64_t *)(phys + hhdm_offset);
@@ -138,10 +151,67 @@ uint64_t vmm_get_phys(uint64_t virt) {
     return (pte & VMM_ADDR_MASK) + (virt & 0xFFF);
 }
 
-void vmm_init() {
-    pml4 = (uint64_t *)(pmm_alloc_frame() + hhdm_offset);
-    // zero pml4
+#define VMM_TEST_VA 0xffffffffc0000000ULL
+
+void vmm_init(void) {
+    uint64_t pml4_phys = pmm_alloc_frame();
+    if (pml4_phys == 0) {
+        logf("vmm: out of frames allocating PML4\n");
+        hcf();
+    }
+
+    pml4 = phys_to_virt(pml4_phys);
     for (int i = 0; i < 512; i++) {
         pml4[i] = 0;
     }
+
+    /* Map the HHDM (and everything else Limine described) with 4 KiB pages so
+     * every physical frame stays reachable after we load our own CR3. */
+    struct limine_memmap_response *memmap = boot_data_get_memmap_response();
+    for (uint64_t i = 0; i < memmap->entry_count; i++) {
+        struct limine_memmap_entry *e = memmap->entries[i];
+        uint64_t start = e->base & ~0xFFFULL;
+        uint64_t end   = (e->base + e->length + 0xFFF) & ~0xFFFULL;
+        for (uint64_t phys = start; phys < end; phys += PAGE_SIZE) {
+            vmm_map_page(phys + hhdm_offset, phys, VMM_PRESENT | VMM_WRITABLE);
+        }
+    }
+
+    /* Map the kernel image: the virtual range is fixed by the linker, the
+     * physical location comes from Limine. */
+    struct limine_executable_address_response *exec =
+        boot_data_get_executable_address_response();
+    for (uint64_t virt = (uint64_t)__kernel_start;
+         virt < (uint64_t)__kernel_end; virt += PAGE_SIZE) {
+        uint64_t phys = exec->physical_base + (virt - exec->virtual_base);
+        vmm_map_page(virt, phys, VMM_PRESENT | VMM_WRITABLE);
+    }
+
+    /* Optional recursive entry 510 (the public API still walks via the HHDM). */
+    pml4[510] = pml4_phys | VMM_PRESENT | VMM_WRITABLE;
+
+    /* Self-test: map a scratch frame, read the translation back, then unmap. */
+    if (PML4_INDEX(0xffffffff80000000ULL) != 511) {
+        logf("vmm: kernel is not in PML4 entry 511\n");
+        hcf();
+    }
+
+    uint64_t test_frame = pmm_alloc_frame();
+    if (test_frame == 0
+     || vmm_map_page(VMM_TEST_VA, test_frame, VMM_PRESENT | VMM_WRITABLE) != 0
+     || vmm_get_phys(VMM_TEST_VA) != test_frame) {
+        logf("vmm: self-test mapping failed\n");
+        hcf();
+    }
+
+    vmm_unmap_page(VMM_TEST_VA);
+    if (vmm_get_phys(VMM_TEST_VA) != 0) {
+        logf("vmm: self-test unmap failed\n");
+        hcf();
+    }
+
+    logf("vmm: page tables built, loading CR3\n");
+
+    load_cr3(pml4_phys);
+    logf("vmm: new page tables active\n");
 }
